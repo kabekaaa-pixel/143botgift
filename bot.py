@@ -62,10 +62,10 @@ def load_data():
             return json.load(f)
     except:
         return {
-            str(MY_ID): {"enabled": False, "waiting_send": False},
-            str(HER_ID): {"enabled": False, "waiting_send": False}
-        }
-
+    str(MY_ID): {"enabled": False, "waiting_send": False, "ever_used_reminder": False},
+    str(HER_ID): {"enabled": False, "waiting_send": False, "ever_used_reminder": False}
+}
+        
 def save_data():
     with open(DATA_FILE, "w") as f:
         json.dump(data, f)
@@ -74,7 +74,11 @@ data = load_data()
 
 def ensure_user(user_id):
     if str(user_id) not in data:
-        data[str(user_id)] = {"enabled": False, "waiting_send": False}
+        data[str(user_id)] = {
+    "enabled": False,
+    "waiting_send": False,
+    "ever_used_reminder": False
+}
         save_data()
 
 # -------------------- ACCESS --------------------
@@ -93,12 +97,14 @@ def reply_keyboard(user_id):
     enabled = data[str(user_id)]["enabled"]
     waiting = data[str(user_id)]["waiting_send"]
 
-    reminder_text = "выключить напоминания" if enabled else "включить напоминания"
-
     keyboard = [
-        [KeyboardButton(text="обнять"), KeyboardButton(text="поцеловать")],
-        [KeyboardButton(text=reminder_text)]
+        [KeyboardButton(text="обнять"), KeyboardButton(text="поцеловать")]
     ]
+
+    # кнопку напоминаний показываем только если пользователь уже включал их
+    if data[str(user_id)].get("ever_used_reminder", False):
+        reminder_text = "выключить напоминания" if enabled else "включить напоминания"
+        keyboard.append([KeyboardButton(text=reminder_text)])
 
     if user_id == MY_ID:
         if waiting:
@@ -107,17 +113,6 @@ def reply_keyboard(user_id):
             keyboard.append([KeyboardButton(text="сообщение")])
 
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
-
-def inline_keyboard(user_id):
-    enabled = data[str(user_id)]["enabled"]
-    if enabled:
-        return InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="выключить напоминания", callback_data="stop")]]
-        )
-    else:
-        return InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="включить напоминания", callback_data="enable")]]
-        )
 
 # -------------------- START --------------------
 
@@ -130,82 +125,65 @@ async def start(message: types.Message):
 
     await message.answer(
         "ну шо ты косолапая",
-        reply_markup=reply_keyboard(message.from_user.id)
+        reply_markup=InlineKeyboardMarkup(
+            inline_keyboard=[
+                [InlineKeyboardButton(text="включить напоминания", callback_data="enable_first")]
+            ]
+        )
     )
 
     await message.answer(
         " ",
-        reply_markup=inline_keyboard(message.from_user.id)
+        reply_markup=reply_keyboard(message.from_user.id)
     )
 
 # -------------------- ENABLE/DISABLE --------------------
 
-@dp.callback_query(F.data == "enable")
-async def enable(callback: types.CallbackQuery):
-    if not is_allowed(callback.from_user.id):
-        return
-
+@dp.callback_query(F.data == "enable_first")
+async def enable_first(callback: types.CallbackQuery):
     user_id = callback.from_user.id
     ensure_user(user_id)
 
     data[str(user_id)]["enabled"] = True
+    data[str(user_id)]["ever_used_reminder"] = True
     save_data()
+
+    await callback.message.edit_reply_markup(reply_markup=None)
 
     await callback.message.answer(
         "уряяя!! 143143143!!!! теперь ты точно никогда не забудешь о том как я тебя люблю!",
         reply_markup=reply_keyboard(user_id)
     )
 
-    await callback.message.answer(
-        " ",
-        reply_markup=inline_keyboard(user_id)
-    )
-
     await callback.answer()
 
-@dp.callback_query(F.data == "stop")
-async def stop(callback: types.CallbackQuery):
-    if not is_allowed(callback.from_user.id):
-        return
+@dp.message(F.text == "включить напоминания")
+async def enable_text(message: types.Message):
+    user_id = message.from_user.id
+    ensure_user(user_id)
 
-    user_id = callback.from_user.id
+    data[str(user_id)]["enabled"] = True
+    data[str(user_id)]["ever_used_reminder"] = True
+    save_data()
+
+    await message.answer(
+        "уряяя!! 143143143!!!! теперь ты точно никогда не забудешь о том как я тебя люблю!",
+        reply_markup=reply_keyboard(user_id)
+    )
+
+@dp.message(F.text == "выключить напоминания")
+async def disable_text(message: types.Message):
+    user_id = message.from_user.id
     ensure_user(user_id)
 
     data[str(user_id)]["enabled"] = False
     save_data()
 
-    await callback.message.answer(
+    await message.answer(
         "ну блин, я понимаю что ты это и так знаешь, но всё же..( ну лан, надеюсь тебе понравилось!",
         reply_markup=reply_keyboard(user_id)
     )
-
-    await callback.message.answer(
-        " ",
-        reply_markup=inline_keyboard(user_id)
-    )
-
-    await callback.answer()
-
-@dp.message(F.text == "включить напоминания")
-async def enable_text(message: types.Message):
-    await enable(types.CallbackQuery(
-        id="text",
-        from_user=message.from_user,
-        chat_instance="",
-        message=message,
-        data="enable"
-    ))
-
-@dp.message(F.text == "выключить напоминания")
-async def disable_text(message: types.Message):
-    await stop(types.CallbackQuery(
-        id="text",
-        from_user=message.from_user,
-        chat_instance="",
-        message=message,
-        data="stop"
-    ))
-
+    
 # -------------------- SEND MODE --------------------
 
 @dp.message(Command("send"))
