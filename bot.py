@@ -275,16 +275,27 @@ async def text_handler(message: types.Message):
 # -------------------- SCHEDULER --------------------
 
 last_sent = {}
+daily_choice = {}
 
 async def reminder_loop():
     await asyncio.sleep(5)
 
     while True:
         now = datetime.now(OMSK_TZ)
-        key = f"{now.hour}:{now.minute}"
+        key = f"{now.date()}-{now.hour}:{now.minute}"
 
         for user_id in [MY_ID, HER_ID]:
             ensure_user(user_id)
+            today = str(now.date())
+
+# если сегодня ещё не выбирали время — выбираем
+if daily_choice.get(user_id) != today:
+    daily_choice[user_id] = today
+
+    if random.random() < 0.5:
+        daily_choice[(user_id, "time")] = (1, 43)
+    else:
+        daily_choice[(user_id, "time")] = (6, 24)
 
             if not data[str(user_id)]["enabled"]:
                 continue
@@ -293,9 +304,11 @@ async def reminder_loop():
                 continue
 
             # 6:24 и 1:43
-            if (now.hour == 6 and now.minute == 24) or (now.hour == 1 and now.minute == 43):
-                await bot.send_message(user_id, random.choice(MESSAGES))
-                last_sent[(user_id, key)] = True
+            chosen_hour, chosen_minute = daily_choice.get((user_id, "time"), (1, 43))
+
+if now.hour == chosen_hour and now.minute == chosen_minute:
+    await bot.send_message(user_id, random.choice(MESSAGES))
+    last_sent[(user_id, key)] = True
 
             # 14:43 — 10%
             if now.hour == 14 and now.minute == 43:
