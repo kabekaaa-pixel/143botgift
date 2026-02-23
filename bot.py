@@ -286,16 +286,17 @@ async def reminder_loop():
 
         for user_id in [MY_ID, HER_ID]:
             ensure_user(user_id)
+
             today = str(now.date())
 
-# если сегодня ещё не выбирали время — выбираем
-if daily_choice.get(user_id) != today:
-    daily_choice[user_id] = today
+            # если сегодня ещё не выбирали время — выбираем
+            if daily_choice.get(user_id) != today:
+                daily_choice[user_id] = today
 
-    if random.random() < 0.5:
-        daily_choice[(user_id, "time")] = (1, 43)
-    else:
-        daily_choice[(user_id, "time")] = (6, 24)
+                if random.random() < 0.5:
+                    daily_choice[(user_id, "time")] = (1, 43)
+                else:
+                    daily_choice[(user_id, "time")] = (6, 24)
 
             if not data[str(user_id)]["enabled"]:
                 continue
@@ -303,20 +304,22 @@ if daily_choice.get(user_id) != today:
             if last_sent.get((user_id, key)):
                 continue
 
-            # 6:24 и 1:43
-            chosen_hour, chosen_minute = daily_choice.get((user_id, "time"), (1, 43))
+            # --- выбранное время (1:43 ИЛИ 6:24) ---
+            chosen_hour, chosen_minute = daily_choice.get(
+                (user_id, "time"), (1, 43)
+            )
 
-if now.hour == chosen_hour and now.minute == chosen_minute:
-    await bot.send_message(user_id, random.choice(MESSAGES))
-    last_sent[(user_id, key)] = True
+            if now.hour == chosen_hour and now.minute == chosen_minute:
+                await bot.send_message(user_id, random.choice(MESSAGES))
+                last_sent[(user_id, key)] = True
 
-            # 14:43 — 10%
+            # --- 14:43 — 10% ---
             if now.hour == 14 and now.minute == 43:
                 if random.random() <= 0.10:
                     await bot.send_message(user_id, "💋")
                 last_sent[(user_id, key)] = True
 
-            # Нечётные часы — 1%
+            # --- Нечётные часы — 1% ---
             if now.minute == 43 and now.hour % 2 == 1:
                 if random.random() <= 0.01:
                     await bot.send_message(user_id, MONOLOG)
