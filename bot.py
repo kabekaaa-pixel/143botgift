@@ -13,7 +13,7 @@ from aiogram.types import (
     KeyboardButton
 )
 
-TOKEN = "8279523638:AAFQoHMem4XCW2eq3fdcC0nmMbHysJsrED4"
+TOKEN = "8279523638:AAFvjbxoRvbsWo-HOJEOTj1Gn4q4eM_Ob9E"
 
 HER_ID = 2007593176
 MY_ID = 1395307876
